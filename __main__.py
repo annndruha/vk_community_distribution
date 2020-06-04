@@ -1,126 +1,149 @@
 import time
 import json
+import os
 
 from vk_api import VkApi
-from vk_api.longpoll import VkLongPoll, VkEventType
-from vk_api.keyboard import VkKeyboard
-from vk_api.utils import get_random_id
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import numpy as np
 
 
 class GetInfo:
-    def __init__(self, login, password, token, target):
+    def __init__(self, login, password, target, type = 'group_members'):
         self.vk = VkApi(login, password)
         self.vk.auth()
-        self.token = token
+
         self.target = target
+        self.type = type
 
         self.members = []
+        self.bdate_mans = []
+        self.bdate_womans = []
         self.count_of_members = 0
+        self.mens = 0
+        self.womans =0
+        self.no_sex = 0
+        self.deleted = 0
+        self.banned = 0
+        self.active = 0
+        self.open_accounts=0
+        self.closed_accounts=0
+
 
     def get_members_ids(self):
         offset = 0
-        self.count_of_members = self.vk.method('groups.getMembers', {'group_id':self.target, 'count':1})['count']
-        start_time = time.time()
-        while len(self.members)<self.count_of_members:
-            print(f'Get ids: {len(self.members)}/{self.count_of_members}')
-            self.members += self.vk.method('execute',
-                {'code':
-                    '''var members = [];
-                    var offset = %i; 
-                    var i = 0;
-                    var members_count = %i;
+        if not os.path.exists(str(self.target)):
+            os.makedirs(str(self.target))
 
-                    while ((i<25) &&(offset<members_count))
-                    {
-                    members = members + API.groups.getMembers({"group_id":"%s", "offset":offset })["items"];
-                    i = i + 1;
-                    offset = offset + 1000;
-                    };
-                    return members;''' % (offset, self.count_of_members, self.target)
-                })
-            offset +=25000
-            print(f'Users: {len(self.members)}\t Time:{time.time()-start_time}')
+        if self.type == 'group_members':
+            self.count_of_members = self.vk.method('groups.getMembers', {'group_id':self.target, 'count':1})['count']
+            start_time = time.time()
+            while len(self.members)<self.count_of_members:
+                print(f'Get ids: {len(self.members)}/{self.count_of_members}')
+                self.members += self.vk.method('execute',
+                    {'code':
+                        '''var members = [];
+                        var offset = %i; 
+                        var i = 0;
+                        var members_count = %i;
+
+                        while ((i<25) &&(offset<members_count))
+                        {
+                        members = members + API.groups.getMembers({"group_id":"%s", "offset":offset })["items"];
+                        i = i + 1;
+                        offset = offset + 1000;
+                        };
+                        return members;''' % (offset, self.count_of_members, self.target)
+                    })
+                offset +=25000
+                print(f'Users: {len(self.members)}\t Time:{time.time()-start_time}')
+
+        elif self.type == 'user_friends':
+            print(f'Get friens ids...')
+            try:
+                id = int(self.target.replace('id',''))
+            except:
+                id = self.vk.method('users.get', {'user_ids':self.target})[0]['id']
+            else:
+                self.vk.method('friends.get', {'user_id':id})
+
+            self.members +=self.vk.method('friends.get', {'user_id':id})["items"]
+            self.count_of_members = len(self.members)
+            print(f'Users: {self.count_of_members}')
+
         print('Get ids done')
-        with open(f'{str(self.target)}_ids.json', 'w') as outfile:
+        with open(f'{self.target}/{self.target}_ids.json', 'w') as outfile:
             json.dump(self.members, outfile)
         print('Ids wrote')
         return None
 
     def get_users_data(self):
         print('Ids loaded')
-        members_ids = json.load(open(f'{self.target}_ids.json'))
+        members_ids = json.load(open(f'{self.target}/{self.target}_ids.json'))
 
         offset = 0
         members_data = []
+        start_time = time.time()
         while offset<len(members_ids):
             members = members_ids[offset:offset+1000]
             members_str = ','.join(map(str, members))
             members_data += self.vk.method('users.get', {'user_ids':members_str, 'fields':'bdate, sex'})
             offset += 1000
-            print(f'Get users gata: {offset}/{len(members_ids)}')
+            print(f'Get users gata: {len(members_data)}/{len(members_ids)}\t Time:{time.time()-start_time}')
 
         print('Get users data done')
-        with open(f'{str(self.target)}_data.json', 'w') as outfile:
+        with open(f'{self.target}/{self.target}_data.json', 'w') as outfile:
             json.dump(members_data, outfile)
         print('Users data wrote')
         return None
 
     def calculate(self):
-        members_data = json.load(open(f'{str(self.target)}_data.json'))
+        members_data = json.load(open(f'{self.target}/{self.target}_data.json'))
         print('Users data loaded')
 
-        mens = 0
-        womans =0
-        no_sex = 0
-        deleted = 0
-        banned = 0
-        active = 0
-        open_accounts=0
-        closed_accounts=0
-
-        bdate_mans = []
-        bdate_womans = []
         print('Calculate...')
         for data in members_data:
             if 'deactivated' in data:
                 if data['deactivated']=='deleted':
-                    deleted+=1
+                    self.deleted+=1
                 elif data['deactivated']=='banned':
-                    banned+=1
+                    self.banned+=1
             else:
-                active += 1
-                if data['is_closed']==False:
-                    open_accounts +=1
+                self.active += 1
+                if data['is_closed']==True:
+                    self.closed_accounts +=1
+                else:
+                    self.open_accounts +=1
                     if data['sex']==1:
-                        womans += 1
+                        self.womans += 1
                     elif data['sex']==2:
-                        mens += 1
+                        self.mens += 1
                     else:
-                        no_sex +=1
+                        self.no_sex +=1
 
                     if 'bdate' in data:
                         if len(data['bdate'].split('.'))==3:
                             year = int((data['bdate'].split('.'))[2])
                             if year>1960:
                                 if data['sex']!=0:
-                                    bdate_mans.append(year) if data['sex']==2 else bdate_womans.append(year)
-                else:
-                    closed_accounts +=1
+                                    if data['sex']==2:
+                                        self.bdate_mans.append(year)
+                                    else:
+                                        self.bdate_womans.append(year)
+        print('Calculate done')
+        return None
 
+    def make_plot(self):
         print('Plotting...')
-        bdate_womans = np.array(bdate_womans)
-        bdate_mans = np.array(bdate_mans)
+        bdate_womans = np.array(self.bdate_womans)
+        bdate_mans = np.array(self.bdate_mans)
         bins = np.arange(min(bdate_womans), max(bdate_womans) + 1, 1)
 
         fig, ax1 = plt.subplots()
         fig.set_size_inches((16, 9), forward=False)
 
-        plt.hist(bdate_womans, bins=bins, alpha=0.5, color='pink', align='left', stacked=True)
-        plt.hist(bdate_mans, bins=bins, alpha=0.5, color='blue', align='left')
-
+        bdates = np.array([bdate_womans, bdate_mans])
+        ax1.hist(bdates, bins, histtype='bar', align='left', color = ['violet','slateblue'])
 
         labels = [str(i) for i in bins]
         ax1.set_xticks(bins)
@@ -136,29 +159,30 @@ class GetInfo:
         ax2.set_xticklabels(labels_top, rotation=90)
         ax2.set_xlabel("Возраст")
 
-        plt.title(f'Возрастно-половая диаграмма сообщества: {self.target}')
+        plt.title(f'Возрастно-половая диаграмма: {self.target}')
         
-        a = mpatches.Patch(color='blue', label=f'Mens = {mens} ({int(100*(mens/(mens+womans)))}%)')
-        b = mpatches.Patch(color='pink', label=f'Womans = {womans} ({int(100*(womans/(mens+womans)))}%)')
-        c = mpatches.Patch(color='gray', label=f'deleted = {deleted} ({int(100*(deleted/(banned+active+deleted)))}%)')
-        d = mpatches.Patch(color='gray', label=f'banned = {banned} ({int(100*(banned/(banned+active+deleted)))}%)')
-        e = mpatches.Patch(color='gray', label=f'active = {active} ({int(100*(active/(banned+active+deleted)))}%)')
-        f = mpatches.Patch(color='gray', label=f'open_accounts = {open_accounts} ({int(100*(open_accounts/(open_accounts+closed_accounts)))}%)')
-        g = mpatches.Patch(color='gray', label=f'closed_accounts = {closed_accounts} ({int(100*(closed_accounts/(open_accounts+closed_accounts)))}%)')
-        z = mpatches.Patch(color='gray', label=f'total = {len(members_data)}')
+        a = mpatches.Patch(color='slateblue', label=f'Mens = {self.mens} ({int(100*(self.mens/(self.mens+self.womans)))}%)')
+        b = mpatches.Patch(color='violet', label=f'Womans = {self.womans} ({int(100*(self.womans/(self.mens+self.womans)))}%)')
+        c = mpatches.Patch(color='gray', label=f'deleted = {self.deleted} ({int(100*(self.deleted/(self.banned+self.active+self.deleted)))}%)')
+        d = mpatches.Patch(color='gray', label=f'banned = {self.banned} ({int(100*(self.banned/(self.banned+self.active+self.deleted)))}%)')
+        e = mpatches.Patch(color='gray', label=f'active = {self.active} ({int(100*(self.active/(self.banned+self.active+self.deleted)))}%)')
+        f = mpatches.Patch(color='gray', label=f'open_accounts = {self.open_accounts} ({int(100*(self.open_accounts/(self.open_accounts+self.closed_accounts)))}%)')
+        g = mpatches.Patch(color='gray', label=f'closed_accounts = {self.closed_accounts} ({int(100*(self.closed_accounts/(self.open_accounts+self.closed_accounts)))}%)')
+        z = mpatches.Patch(color='gray', label=f'total = {len(self.members)}')
 
         plt.legend(handles=[a,b,c,d,e,f,g,z], loc='upper left')
 
-        plt.savefig(f'data/{self.target}.png', dpi=420, bbox_inches='tight')
-        print(f'Plot save in data/{self.target}.png')
+        plt.savefig(f'{self.target}/{self.target}.png', dpi=420, bbox_inches='tight')
+        print(f'Plot save in {self.target}/{self.target}.png')
         return None
 
 if __name__=='__main__':
-    TARGET = 'sessiyabot'
+    TARGET = '478143147'
 
-    login, password, token = json.load(open('secret.json'))
-    getter = GetInfo(login, password, token, TARGET)
+    login, password = json.load(open('secret.json'))
+    getter = GetInfo(login, password, TARGET, type = 'group_members') # or type = 'group_members'
     getter.get_members_ids()
     getter.get_users_data()
     getter.calculate()
+    getter.make_plot()
     print('Done')
