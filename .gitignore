@@ -1,0 +1,8 @@
+.vs*
+.vs/
+.git/
+__pycache__/
+config.py
+secret.*
+*.png
+*.json
