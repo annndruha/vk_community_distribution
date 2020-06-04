@@ -1,4 +1,4 @@
-### vk.com community members sex and age distribution (population pyramid)
+## vk.com community members sex and age distribution (population pyramid)
 
 **Скрипт для получения графика и данных распределения участников сообщества вк по полу и возрасту (Возрастно-половая пирамида)**
 
