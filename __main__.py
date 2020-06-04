@@ -177,10 +177,10 @@ class GetInfo:
         return None
 
 if __name__=='__main__':
-    TARGET = '478143147'
+    TARGET = 'sessiyabot'
 
     login, password = json.load(open('secret.json'))
-    getter = GetInfo(login, password, TARGET, type = 'group_members') # or type = 'group_members'
+    getter = GetInfo(login, password, TARGET, type = 'user_friends') # or type = 'group_members'
     getter.get_members_ids()
     getter.get_users_data()
     getter.calculate()
