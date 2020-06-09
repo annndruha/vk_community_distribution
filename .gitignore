@@ -3,5 +3,7 @@
 .git/
 __pycache__/
 config.py
-#secret.*
+*secret*
 *.json
+*.png
+*.jpg
