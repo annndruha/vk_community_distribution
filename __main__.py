@@ -234,7 +234,7 @@ class GetInfo:
 
 if __name__=='__main__':
 
-    TARGET = 'lentach'
+    TARGET = 'im'
 
     login, password = json.load(open('secret.json'))
     getter = GetInfo(login, password, TARGET, type = 'group_members', normed = True) # or type = 'group_members'/'user_friends'
