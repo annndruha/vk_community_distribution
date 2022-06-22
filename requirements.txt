@@ -1,5 +1,5 @@
 vk-api==11.8.0
 matplotlib==3.2.2
-numpy==1.19.0
+numpy==1.22.0
 opencv-python==4.3.0.36
 imutils==0.5.3
